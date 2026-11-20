@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MEMORY_WINDOW, decideAccess, pickPlannerRoute, recentHistory } from "@/lib/planner/rules";
+import { MEMORY_WINDOW, aiErrorReply, decideAccess, recentHistory } from "@/lib/planner/rules";
 
 describe("bot owner lock", () => {
   it("lets the first chat claim the bot", () => {
@@ -29,12 +29,11 @@ describe("chat memory", () => {
   });
 });
 
-describe("which AI writes the plan", () => {
-  it("uses the free Gemini key when it is set", () => {
-    expect(pickPlannerRoute("AIzaExampleKey")).toBe("gemini-free");
+describe("Gemini error messages", () => {
+  it("explains rate limits", () => {
+    expect(aiErrorReply(429)).toContain("try again in a minute");
   });
-  it("falls back to the built-in AI only when no Gemini key is set", () => {
-    expect(pickPlannerRoute(undefined)).toBe("built-in");
-    expect(pickPlannerRoute("  ")).toBe("built-in");
+  it("explains invalid credentials", () => {
+    expect(aiErrorReply(401)).toContain("GEMINI_API_KEY");
   });
 });
