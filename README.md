@@ -95,7 +95,7 @@ The false branch is intentionally left unconnected, so messages from any other c
 
 ## 5. Give local n8n a public HTTPS URL
 
-Telegram needs an HTTPS webhook to reach n8n. Install `cloudflared` from [Cloudflare's downloads page](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/), then run this in a separate terminal:
+Telegram needs an HTTPS webhook to reach n8n. On Windows, install it with `winget install --id Cloudflare.cloudflared`, or use [Cloudflare's downloads page](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/). Then run this in a separate terminal:
 
 ```sh
 cloudflared tunnel --url http://localhost:5678
