@@ -1,0 +1,185 @@
+{
+  "name": "Telegram Day Planner",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -720,
+        0
+      ],
+      "id": "3f72aeb1-2ea9-4706-94b9-2dbfa086cc18",
+      "name": "Telegram Trigger",
+      "webhookId": "2a34c58d-8414-46b8-bf0b-d0dc6c78581d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "668b26ce-0d19-4c5b-8e3a-955253126157",
+              "leftValue": "={{ String($json.message.chat.id) }}",
+              "rightValue": "YOUR_CHAT_ID",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -480,
+        0
+      ],
+      "id": "24790b4d-b4a7-4e0e-a95f-672255d4ff4e",
+      "name": "Only my chat"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Trigger').item.json.message.text }}",
+        "options": {
+          "systemMessage": "You are my day planner. The user sends you a list of things to do today, sometimes with fixed times.\nTurn it into a simple time-blocked plan for today.\nUse Asia/Kolkata (India) time.\n\nRules:\n- Keep every time the user gives (\"call amma at 8pm\" stays at 8:00 PM).\n- Workouts go in the morning unless the user says otherwise.\n- Focus work (writing, studying, coding) gets a 60 to 90 minute block before lunch.\n- Chores like laundry go in the afternoon.\n- Leave short breaks between blocks. Nothing before 6:00 AM or after 10:00 PM.\n- Reply with one line per block: start - end, then the task, in 12-hour time. End with one short, friendly line.\n- No tables, no markdown symbols and no long explanations. If something is unclear, make a sensible guess and mention it in one short line.\n- If the user just chats or asks to change the plan, reply briefly and update the plan.\n- Do not ask for or repeat passwords, API keys, or other secrets."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -200,
+        0
+      ],
+      "id": "7cf6a48e-616b-4e61-8f9e-2c0f37d9f399",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        240
+      ],
+      "id": "a72d77fa-d73b-4763-93cb-1fb1caf3c840",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        240
+      ],
+      "id": "c06f4a69-1eef-4952-b28e-35a2be6c592b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        0
+      ],
+      "id": "1a35e43c-92a0-411a-9961-a2a34c4d1fc4",
+      "name": "Send a text message"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Only my chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only my chat": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d79c884e-3539-40b5-a598-79f65e54e32b",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "tags": []
+}
