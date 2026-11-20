@@ -109,4 +109,4 @@ bun run preview   # preview the built app
 bun run lint      # lint source
 ```
 
-`bun run start` may be used by Node-based hosts after building, if enabled by the selected Nitro deployment preset.
+The default Nitro Node server output can be started with `node .output/server/index.mjs` after building. Choose a different Nitro preset if your host requires another deployment format.
