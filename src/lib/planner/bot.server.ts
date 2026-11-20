@@ -2,22 +2,16 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { streamText, type ModelMessage } from "ai";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createLovableAiGatewayProvider } from "@/lib/ai/gateway.server";
 import {
   MEMORY_WINDOW,
   WELCOME_TEXT,
   aiErrorReply,
   buildSystemPrompt,
   decideAccess,
-  pickPlannerRoute,
   recentHistory,
-  type PlannerRoute,
 } from "./rules";
 import { sendText, telegram } from "./telegram.server";
 
-// Built-in AI (used only when no free Gemini key is set).
-const PLANNER_MODEL = "google/gemini-3.1-flash-lite";
-const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
 // Free Gemini key from Google AI Studio, as in the guide.
 const GEMINI_FREE_MODEL = "gemini-flash-lite-latest";
 const GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
@@ -62,25 +56,22 @@ async function saveMessage(chatId: number, role: "user" | "assistant", content: 
   if (error) throw new Error(`Could not save chat memory: ${error.message}`);
 }
 
-function plannerModel(route: PlannerRoute) {
-  if (route === "gemini-free") {
-    const gemini = createOpenAICompatible({
-      name: "gemini",
-      baseURL: GEMINI_OPENAI_URL,
-      apiKey: process.env["GEMINI_API_KEY"]!.trim(),
-    });
-    return gemini(GEMINI_FREE_MODEL);
-  }
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
-  const provider = createLovableAiGatewayProvider(apiKey, undefined, { baseURL: AI_GATEWAY_URL });
-  return provider(PLANNER_MODEL);
+function plannerModel() {
+  const apiKey = process.env["GEMINI_API_KEY"]?.trim();
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+
+  const gemini = createOpenAICompatible({
+    name: "gemini",
+    baseURL: GEMINI_OPENAI_URL,
+    apiKey,
+  });
+  return gemini(GEMINI_FREE_MODEL);
 }
 
-async function writePlan(route: PlannerRoute, history: ModelMessage[]): Promise<string> {
+async function writePlan(history: ModelMessage[]): Promise<string> {
   let streamError: unknown;
   const result = streamText({
-    model: plannerModel(route),
+    model: plannerModel(),
     instructions: buildSystemPrompt(),
     messages: history,
     maxRetries: 0,
@@ -135,14 +126,17 @@ export async function handleUpdate(update: TelegramUpdate): Promise<void> {
   await saveMessage(chatId, "user", text);
   const history = (await loadHistory(chatId)).map((m) => ({ role: m.role, content: m.content }) as ModelMessage);
 
-  const route = pickPlannerRoute(process.env["GEMINI_API_KEY"]);
   let reply: string;
   try {
-    reply = await writePlan(route, history);
+    reply = await writePlan(history);
   } catch (error) {
     const status = (error as { statusCode?: number })?.statusCode;
-    console.error(`Planner AI call failed (${route}, status ${status ?? "none"})`, error);
-    await sendText(chatId, aiErrorReply(status, route));
+    console.error(`Planner AI call failed (status ${status ?? "none"})`, error);
+    if (error instanceof Error && error.message.includes("GEMINI_API_KEY is not configured")) {
+      await sendText(chatId, "The planner is not configured yet. Add GEMINI_API_KEY to the server environment.");
+      return;
+    }
+    await sendText(chatId, aiErrorReply(status));
     return;
   }
   if (!reply) reply = "Sorry, I couldn't write a plan for that. Could you send your list again?";
